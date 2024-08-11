@@ -1,5 +1,7 @@
 #!/bin/bash
-bash_history_lib_file="/usr/local/lib/bash_history/bash_history.sh"
-if [ -f "$bash_history_lib_file" ]; then 
-  source "$bash_history_lib_file"; 
-fi
+lib_root="/usr/local/lib"
+
+lib_name="bash_history"
+lib_dir="${lib_root}/${lib_name}"
+lib_file="${lib_dir}/${lib_name}.lib.sh"
+if [ -f "$lib_file" ]; then source "$lib_file"; fi
