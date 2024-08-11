@@ -1,9 +1,13 @@
 #!/bin/bash
 
+# set either to "hcmnt" for full version 
+# or "hcmnts" for compact version
+hcmnt_fn="hcmnt" # hcmnt_fn="hcmnts" 
 # set a default (must use -e option to include it)
-export hcmntextra='date "+%Y%m%d %R"'      # you must be really careful to get the quoting right
 
-# start using it
-[ "$hcmnt_variant" == "lite" ] \
-&& export PROMPT_COMMAND='hcmnts' \
-|| export PROMPT_COMMAND='hcmnt'
+# source selected version of function and start using it
+fn_hcmnt_file="$(dirname "${BASH_SOURCE[0]}")/fn.${bash_history_fn}.sh"
+[ -f "$fn_hcmnt_file" ] && source "$fn_hcmnt_file" && {
+  export hcmntextra='date "+%Y%m%d %R"' \
+  export PROMPT_COMMAND="${hcmnt_fn}"
+}
