@@ -1,5 +1,54 @@
 #!/usr/bin/env bash
 declare -ag zfsfn_zpool_props; zfsfn_zpool_props=( "ashift" "autoexpand" "autoreplace" "autotrim" "cachefile" "comment" "compatibility" "dedup_table_quota" "dedupditto" "delegation" "failmode" "listsnapshots" "multihost" "readonly" )
+zfs_set_max_ram(){
+    ## Usage:
+    ##   Set to 1/4 of total memory:
+    ##     zfs_set_max_ram "part_of_memory_total" "4"
+    ##   Set to 8G of total memory:
+    ##     zfs_set_max_ram "8"
+    local re_num='^[0-9]+$'
+    local calc_from="use_default"
+    local ram_in_g_fallback="8"
+    local ram_in_bytes=""
+    local debug="n"
+    local ram_in_bytes_total=""
+    local ram_in_kb_total=""
+    ram_in_kb_total="$(get_ram total -u K --hide-unit 2>/dev/null || echo "")"
+    is_numeric "$ram_in_kb_total" && ram_in_bytes_total="${ram_in_kb_total}000"
+    
+    [ "${#}" == "1" ] && is_numeric "$1" && {
+        ram_in_bytes="${1}000000000"
+        is_numeric "$ram_in_bytes" && {
+            [ "$debug" == "y" ] && { echo "$ram_in_bytes"; return 0; } || {
+                echo "$ram_in_bytes" >> "/sys/module/zfs/parameters/zfs_arc_max" && return 0 || return 1        
+            } 
+        }
+        calc_from="use_default"
+    }
+    
+    
+    [ "$calc_from" == "part_of_memory_total" ] && {
+        is_numeric "$ram_in_bytes_total" && {
+            ram_in_bytes=$(($ram_in_bytes_total / 4))
+            is_numeric "$ram_in_bytes" && {
+                [ "$debug" == "y" ] && { echo "$ram_in_bytes"; return 0; } || {
+                    echo "$ram_in_bytes" >> "/sys/module/zfs/parameters/zfs_arc_max" && return 0 || return 1        
+                }
+            }
+        }
+        calc_from="use_default"
+    }
+    
+    [ "$calc_from" == "use_default" ] && {
+        ram_in_bytes="${ram_in_g_fallback}000000000"
+        is_numeric "$ram_in_bytes" && {
+            [ "$debug" == "y" ] && { echo "$ram_in_bytes"; return 0; } || {
+                echo "$ram_in_bytes" >> "/sys/module/zfs/parameters/zfs_arc_max" && return 0 || return 1        
+            }
+        } 
+    }
+    return 0
+}
 zfs_get(){
     local bin="zfs"; local zpool_prop=""; local key=""; local zfs_pool=""
     [ "$1" != "" ] && key="$1" && shift || return 1
@@ -67,10 +116,12 @@ zfs_set_defaults(){
     echo ""
     return ${ret}
 }
-if [ "$1" == "set-defaults" ] || [ "$1" == "set_defaults" ]; then
-    shift && zfs_set_defaults "${@}"
-elif [ "$1" == "set" ]; then
-    shift && zfs_set "${@}"
-elif [ "$1" == "get" ]; then
-    shift && zfs_get "${@}"
+if [ "$1" == "set-defaults" ] || [ "$1" == "set_defaults" ]; then shift;
+    zfs_set_defaults "${@}"
+elif [ "$1" == "set" ]; then shift;
+    if [ "$1" == "max-ram" ] || [ "$1" == "max_ram" ]; then shift;
+        zfs_set_max_ram "${@}";
+    else zfs_set "${@}"; fi
+elif [ "$1" == "get" ]; then shift;
+    zfs_get "${@}"
 fi
