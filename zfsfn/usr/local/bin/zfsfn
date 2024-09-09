@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-declare -ag zpool_props; zpool_props=( "ashift" "autoexpand" "autoreplace" "autotrim" "cachefile" "comment" "compatibility" "dedup_table_quota" "dedupditto" "delegation" "failmode" "listsnapshots" "multihost" "readonly" )
+declare -ag zfsfn_zpool_props; zfsfn_zpool_props=( "ashift" "autoexpand" "autoreplace" "autotrim" "cachefile" "comment" "compatibility" "dedup_table_quota" "dedupditto" "delegation" "failmode" "listsnapshots" "multihost" "readonly" )
 zfs_get(){
     local bin="zfs"; local zpool_prop=""; local key=""; local zfs_pool=""
     [ "$1" != "" ] && key="$1" && shift || return 1
     [ "$1" != "" ] && zfs_pool="$1" && shift || return 1
 
-    for zpool_prop in "${zpool_props[@]}"; do 
+    for zpool_prop in "${zfsfn_zpool_props[@]}"; do 
         [ "$zpool_prop" == "$key" ] && bin="zpool" && break; 
     done
     ${bin} get ${key} ${zfs_pool} -o value -H && return 0 || return 1
@@ -19,14 +19,13 @@ zfs_set(){
         shift
     } || return 1
     [ "$1" != "" ] && zfs_pool="$1" && shift || return 1
-    for zpool_prop in "${zpool_props[@]}"; do 
+    for zpool_prop in "${zfsfn_zpool_props[@]}"; do 
         [ "$zpool_prop" == "$key" ] && bin="zpool" && break; 
     done
     current_value="$(zfs_get "${key}" "${zfs_pool}")"
     [ "$(echo ${current_value} | tr '[[:lower:]]' '[[:upper:]]')" == "$(echo ${value} | tr '[[:lower:]]' '[[:upper:]]')" ] && return 0 || {
-#        echo "# [$(date +'%Y-%m-%d %H:%M:%S')] [ZFS] [${zfs_pool}] Set ${keyvalue}"
         echo "# [ZFS] [${zfs_pool}] Set ${keyvalue}"
-#        echo ${bin} set ${keyvalue} ${zfs_pool} && return 0 
+        ${bin} set ${keyvalue} ${zfs_pool} && return 0 
     }
     return 1
 }
@@ -38,7 +37,7 @@ zfs_set_defaults(){
         [xattr]="sa" \
     )
     local zfs_pools=(); readarray -t zfs_pools < <(zpool list -o name -H);
-    local zfs_pool=""; local keyvalue=""; local key=""; local value="";
+    local zfs_pool=""; local keyvalue=""; local key=""; local value=""; local ret=0;
     if [ "$#" != "0" ]; then
         for keyvalue in "${@}"; do
             echo "$keyvalue" | grep "=" &>/dev/null || continue
@@ -57,19 +56,16 @@ zfs_set_defaults(){
     echo "# -------------------------------------------------------------------------------------"
     echo "#"
     for zfs_pool in "${zfs_pools[@]}"; do
-#    while read -r zfs_pool; do 
-#        echo "# [ZFS] ${zfs_pool}: Set default settings"
         for key in "${!zfs_defaults[@]}"; do
             value="${zfs_defaults[$key]}"
             [ "$key" == "" ] || [ "$value" == "" ] || [ "$zfs_pool" == "" ] && continue
-            zfs_set "${key}=${value}" "${zfs_pool}";
+            zfs_set "${key}=${value}" "${zfs_pool}" || ret=1;
         done
     done
     echo "#"
-
     echo "# #####################################################################################"
     echo ""
-#   done < <(zpool list -o name -H)
+    return ${ret}
 }
 if [ "$1" == "set-defaults" ] || [ "$1" == "set_defaults" ]; then
     shift && zfs_set_defaults "${@}"
